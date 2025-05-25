@@ -15,7 +15,9 @@ export default function EditRecipe() {
     servings: 1,
     unit: 'pieces',
     imageFile: null,      // το αρχείο που επέλεξε ο χρήστης
-    imageUrl: 'https://images.app.goo.gl/DHquqod4DUTt6cd38'          // το URL της υπάρχουσας εικόνας
+    imageUrl: 'https://images.app.goo.gl/DHquqod4DUTt6cd38',          // το URL της υπάρχουσας εικόνας
+    preparationTime: 0,   // χρόνος προετοιμασίας σε λεπτά
+    cookingTime: 0        // χρόνος μαγειρέματος σε λεπτά
   });
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -33,7 +35,9 @@ export default function EditRecipe() {
           steps,
           servings,
           unit,
-          imageUrl
+          imageUrl,
+          preparationTime,
+          cookingTime
         } = res.data;
         setForm({
           title,
@@ -43,7 +47,9 @@ export default function EditRecipe() {
           servings,
           unit,
           imageFile: null,
-          imageUrl: imageUrl || 'https://images.app.goo.gl/DHquqod4DUTt6cd38'
+          imageUrl: imageUrl || 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Arta_Bridge_Epirus_Greece.jpg/960px-Arta_Bridge_Epirus_Greece.jpg',
+          preparationTime: preparationTime || 0,
+          cookingTime: cookingTime || 0
         });
         setError('');
       })
@@ -89,7 +95,9 @@ export default function EditRecipe() {
         ingredients: form.ingredients,
         steps: form.steps,
         servings: form.servings,
-        unit: form.unit
+        unit: form.unit,
+        preparationTime: form.preparationTime,
+        cookingTime: form.cookingTime
       });
 
       if (form.imageFile) {
@@ -181,6 +189,31 @@ export default function EditRecipe() {
             onChange={e => setForm({ ...form, category: e.target.value })}
           />
         </div>
+
+        {/* Preparation & Cooking Times */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Χρόνος Προετοιμασίας (λεπτά)</label>
+            <input
+              type="number"
+              min="0"
+              className="w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
+              value={form.preparationTime}
+              onChange={e => setForm({ ...form, preparationTime: parseInt(e.target.value, 10) || 0 })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Χρόνος Μαγειρέματος (λεπτά)</label>
+            <input
+              type="number"
+              min="0"
+              className="w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
+              value={form.cookingTime}
+              onChange={e => setForm({ ...form, cookingTime: parseInt(e.target.value, 10) || 0 })}
+            />
+          </div>
+        </div>
+
 
         {/* Ingredients */}
         <div>

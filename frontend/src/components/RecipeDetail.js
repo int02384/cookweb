@@ -1,131 +1,177 @@
-import React, { useState, useEffect } from 'react';
-import { fetchRecipe, addComment } from '../api';
+import React, { useEffect, useState, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { fetchRecipe, addComment } from '../api';
+import { AuthContext } from '../AuthContext';
 
 export default function RecipeDetail() {
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [commentForm, setCommentForm] = useState({ user: '', text: '', rating: 5 });
+  const [comment, setComment] = useState('');
+  const [rating, setRating]   = useState(0);      // ← νέο state για το rating
+  const [comments, setComments] = useState([]);
+  const [error, setError] = useState(null);
+
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
-    setLoading(true);
     fetchRecipe(id)
-      .then(res => { setRecipe(res.data); setError(''); })
-      .catch(() => setError('Σφάλμα κατά τη φόρτωση συνταγής'))
-      .finally(() => setLoading(false));
+      .then(res => {
+        setRecipe(res.data);
+        setComments(res.data.comments || []);
+        setError(null);
+      })
+      .catch(err => {
+        console.error('Failed to load recipe:', err);
+        setError('Σφάλμα κατά τη φόρτωση συνταγής');
+      });
   }, [id]);
 
-  const handleCommentChange = e =>
-    setCommentForm({ ...commentForm, [e.target.name]: e.target.value });
-
-  const submitComment = async e => {
+  const handleCommentSubmit = async e => {
     e.preventDefault();
+    const text = comment.trim();
+    if (!text) return;
+
     try {
-      await addComment(id, { ...commentForm, rating: +commentForm.rating });
-      const res = await fetchRecipe(id);
-      setRecipe(res.data);
-      setCommentForm({ user: '', text: '', rating: 5 });
-      setError('');
-    } catch {
-      setError('Σφάλμα κατά την υποβολή σχολίου');
+      const res = await addComment(id, { text, rating });
+      setComments(prev => [...prev, res.data.comments?.slice(-1)[0] || res.data]);
+      setComment('');
+      setRating(0);
+    } catch (err) {
+      console.error('Comment submission failed:', err);
+      alert('Σφάλμα κατά την αποστολή σχολίου');
     }
   };
 
+  if (error) return <div className="p-4 text-red-600">{error}</div>;
+  if (!recipe) return <div className="p-4">Φόρτωση...</div>;
+    const ingredientsArray = Array.isArray(recipe.ingredients)
+    ? recipe.ingredients
+    : Array.isArray(recipe.ingredients)
+    ? recipe.ingredients
+    : recipe.ingredients
+    ? recipe.ingredients.split('\n')
+    : [];
+
+  const stepsArray = Array.isArray(recipe.steps)
+    ? recipe.steps
+    : Array.isArray(recipe.instructions)
+    ? recipe.instructions
+    : recipe.instructions
+    ? recipe.instructions.split('\n')
+    : [];
+
   return (
-    <article className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md space-y-6 prose lg:prose-xl dark:prose-invert">
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md">
-          {error}
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-10 bg-white dark:bg-gray-800 shadow-md dark:shadow-gray-900 rounded-lg">
+      <div className="space-y-4">
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200">{recipe.title}</h2>
+        <img
+          src={recipe.image}
+          alt={recipe.title}
+          className="w-full h-96 object-cover rounded-lg shadow-sm"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+        <p><span className="font-semibold">Χρόνος προετοιμασίας:</span> {recipe.preparationTime}</p>
+        <p><span className="font-semibold">Χρόνος μαγειρέματος:</span> {recipe.cookingTime}</p>
+      </div>
+
+      <div className="space-y-4 text-gray-800">
+        <div>
+          <h3 className="text-xl font-semibold mb-1">Συστατικά</h3>
+          {ingredientsArray.length > 0 ? (
+            ingredientsArray.map((step, idx) => (
+              <p
+                key={idx}
+                className="whitespace-pre-line text-gray-700 dark:text-gray-300 mb-2"
+              >
+                ➡ {step}
+              </p>
+            ))
+          ) : (
+            <p className="whitespace-pre-line text-gray-700 dark:text-gray-300">
+              Δεν υπάρχουν υλικά.
+            </p>
+          )}      
         </div>
-      )}
-
-      {loading ? (
-        <div className="flex justify-center my-8">
-          <div className="animate-spin h-12 w-12 border-4 border-t-primary rounded-full" />
-        </div>
-      ) : (
-        recipe && (
-          <>
-            <h1>{recipe.title}</h1>
-            <p><strong>Μερίδες:</strong> {recipe.servings} {recipe.unit}</p>
-
-            <h2>Υλικά</h2>
-            <ul>{recipe.ingredients.map((ing,i) => <li key={i}>{ing}</li>)}</ul>
-
-            <h2>Βήματα</h2>
-            <ol>{recipe.steps.map((s,i) => <li key={i}>{s}</li>)}</ol>
-
-            <h2>Βαθμολογία: {recipe.rating.toFixed(1)} / 5</h2>
-            <h2>Σχόλια</h2>
-            <ul className="space-y-4">
-              {recipe.comments.map((c,i) => (
-                <li key={i} className="bg-gray-100 dark:bg-gray-700 p-4 rounded-md">
-                  <p className="font-semibold">{c.user} <span className="text-sm text-gray-500 dark:text-gray-400">({new Date(c.date).toLocaleDateString()})</span></p>
-                  <p>{c.text}</p>
-                  <p className="text-sm">Rating: {c.rating} / 5</p>
-                </li>
-              ))}
-            </ul>
-         
-
-
-            <form onSubmit={submitComment} className="space-y-4">
-              <h2>Πρόσθεσε Σχόλιο</h2>
-              <input
-                name="user"
-                placeholder="Το όνομά σου"
-                required
-                className="w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                value={commentForm.user}
-                onChange={handleCommentChange}
-              />
-              <textarea
-                name="text"
-                placeholder="Το σχόλιό σου"
-                required
-                rows="3"
-                className="w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                value={commentForm.text}
-                onChange={handleCommentChange}
-              />
-              <div>
-                <label>Rating</label>
-                <select
-                  name="rating"
-                  className="ml-2 border rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                  value={commentForm.rating}
-                  onChange={handleCommentChange}
+        <div>
+          <h3 className="text-xl font-semibold mb-1">Οδηγίες</h3>
+          {stepsArray.length > 0 ? (
+              stepsArray.map((step, idx) => (
+                <p
+                  key={idx}
+                  className="whitespace-pre-line text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  {[5,4,3,2,1,0].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark transition"
-              >
-                Υποβολή
-              </button>
-            </form>
+                  ➡ {step}
+                </p>
+              ))
+            ) : (
+              <p className="whitespace-pre-line text-gray-700 dark:text-gray-300">
+                Δεν υπάρχουν οδηγίες.
+              </p>
+            )}        
+        </div>
+      </div>
 
-            <div className="flex gap-2">
-              <Link
-                to="/"
-                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition"
+      <section className="pt-6 border-t border-gray-200 dark:border-gray-600">
+        <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Σχόλια</h3>
+        {comments.length > 0 ? (
+          <ul className="space-y-4">
+            {comments.map(c => (
+              <li className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-1"><strong>{c.user}</strong></p>
+                {/* Εμφάνιση αστεριών rating δίπλα στο username */}
+                <span className="ml-2 text-yellow-400">
+                  {'★'.repeat(c.rating) + '☆'.repeat(5 - c.rating)}
+                </span>
+                <p>{c.text}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-600">Δεν υπάρχουν σχόλια ακόμη.</p>
+        )}
+
+        {user ? (
+          <form onSubmit={handleCommentSubmit} className="mt-6 space-y-2">
+            <div className="flex space-x-1 mb-2">
+            {[1,2,3,4,5].map(value => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setRating(value)}
+                className={`text-2xl focus:outline-none ${
+                  value <= rating ? 'text-yellow-400' : 'text-gray-300'
+                }`}
               >
-                Επιστροφή
-              </Link>
-              <Link
-                to={`/edit/${recipe._id}`}
-                className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary hover:text-white transition"
-              >
-                Επεξεργασία
-              </Link>
+                ★
+              </button>
+              ))}
             </div>
-          </>
-        )
-      )}
-    </article>
-);
+            <textarea
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+              rows={3}
+              placeholder="Γράψτε το σχόλιό σας..."
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+            />
+            <button
+              type="submit"
+              className="px-6 py-2 bg-primary dark:bg-primary-light text-white font-semibold rounded-md hover:bg-primary-dark transition"
+            >
+              Υποβολή Σχολίου
+            </button>
+          </form>
+        ) : (
+          <p className="mt-4 text-gray-600">
+            Παρακαλώ{' '}
+            <Link to="/login" className="text-primary font-medium underline">
+              συνδεθείτε
+            </Link>{' '}
+            για να σχολιάσετε.
+          </p>
+        )}
+      </section>
+    </div>
+  );
 }

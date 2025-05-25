@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+// src/components/RecipeList.jsx
+import React, { useEffect, useState, useContext } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { fetchRecipes, deleteRecipe } from '../api';
-import { Link } from 'react-router-dom';
+import { AuthContext } from '../AuthContext';
 
 export default function RecipeList() {
   const [recipes, setRecipes] = useState([]);
@@ -8,6 +10,9 @@ export default function RecipeList() {
   const [servingsFilter, setServingsFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setLoading(true);
@@ -20,27 +25,23 @@ export default function RecipeList() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleDelete = async id => {
-    try {
-      await deleteRecipe(id);
-      setRecipes(recipes.filter(r => r._id !== id));
-    } catch {
-      alert('Σφάλμα κατά τη διαγραφή');
-    }
-  };
-
   const displayed = recipes.filter(r => {
-    const matchCat = !categoryFilter || (r.category || '')
-      .toLowerCase()
-      .includes(categoryFilter.toLowerCase());
+    const matchCat = !categoryFilter ||
+      (r.category || '').toLowerCase().includes(categoryFilter.toLowerCase());
     const matchSrv = !servingsFilter || r.servings === Number(servingsFilter);
     return matchCat && matchSrv;
   });
 
+  const handleDelete = id => {
+    deleteRecipe(id)
+      .then(() => setRecipes(prev => prev.filter(r => r._id !== id)))
+      .catch(() => setError('Σφάλμα κατά τη διαγραφή'));
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
+    <div className="max-w-4xl mx-auto p-4 space-y-6 bg-white dark:bg-gray-900">
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md prose dark:prose-invert">
+        <div className="bg-red-100 dark:bg-red-800 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 px-4 py-3 rounded-md prose dark:prose-invert">
           {error}
         </div>
       )}
@@ -59,7 +60,7 @@ export default function RecipeList() {
               </label>
               <input
                 type="text"
-                className="w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
                 placeholder="π.χ. Desserts"
                 value={categoryFilter}
                 onChange={e => setCategoryFilter(e.target.value)}
@@ -71,57 +72,65 @@ export default function RecipeList() {
               </label>
               <input
                 type="number"
-                className="w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
                 placeholder="4"
-                min="1"
                 value={servingsFilter}
                 onChange={e => setServingsFilter(e.target.value)}
               />
             </div>
-            <button
-              onClick={() => { setCategoryFilter(''); setServingsFilter(''); }}
-              className="px-4 py-2 border rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-            >
-              Καθαρισμός
-            </button>
+            <div className="w-24">
+              <label className="block text-sm font-medium mb-1 text-transparent">
+                Καθαρισμός
+              </label>
+              <button
+                onClick={() => { setCategoryFilter(''); setServingsFilter(''); }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              >
+                Καθαρισμός
+              </button>
+            </div>
           </div>
 
-          {/* New Recipe */}
-          <Link
-            to="/new"
-            className="inline-block bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark transition"
-          >
-            Προσθήκη Νέας Συνταγής
-          </Link>
-
-          {/* List */}
-          <ul className="space-y-3">
-            {displayed.map(r => (
-              <li
-                key={r._id}
-                className="flex justify-between items-center bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 hover:shadow-lg transition"
-              >
-                <Link
-                  to={`/recipes/${r._id}`}
-                  className="text-lg font-semibold text-primary hover:underline dark:text-primary-light"
+          {/* Recipe list */}
+          {displayed.length === 0 ? (
+            <p className="text-center text-gray-600 dark:text-gray-400">
+              Δεν βρέθηκαν συνταγές.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {displayed.map(r => (
+                <li
+                  key={r._id}
+                  className="flex justify-between items-center bg-white dark:bg-gray-800 shadow-md dark:shadow-gray-900 rounded-lg p-4 hover:shadow-lg transition"
                 >
-                  {r.title}
-                </Link>
-                <button
-                  onClick={() => handleDelete(r._id)}
-                  className="text-accent-dark hover:text-accent transition"
-                >
-                  Διαγραφή
-                </button>
-              </li>
-            ))}
-          </ul>
+                  <Link
+                    to={`/recipes/${r._id}`}
+                    className="text-lg font-semibold text-primary hover:underline dark:text-primary-light"
+                  >
+                    {r.title}
+                  </Link>
+                  {user?.role === 'admin' && (
+                    <div className="flex space-x-4">
+                      <Link
+                        to={`/edit/${r._id}`}
+                        className="text-blue-600 dark:text-blue-400 hover:underline transition"
+                      >
+                        Επεξεργασία
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(r._id)}
+                        className="text-accent-dark dark:text-accent-light hover:text-accent transition"
+                      >
+                        Διαγραφή
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
     </div>
-);
+  );
 }
-
-
-
-

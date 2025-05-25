@@ -54,6 +54,7 @@ export default function RecipeForm() {
       navigate('/');
     } catch (err) {
       console.error(err);
+      setErrors(err);
       // μπορείτε να βάλετε setErrors({ api: 'Σφάλμα κατά τη δημιουργία' })
     }
   };
